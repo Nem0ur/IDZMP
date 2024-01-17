@@ -1,0 +1,139 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import numpy as np
+from scipy.optimize import minimize, approx_fprime
+
+class BFGSApp:
+    def __init__(self, master):
+        self.master = master
+        master.title("BFGS Solver")
+        self.iteration_counter = 0  # Добавляем счетчик итераций
+
+        # Создаем виджеты
+        self.label_function = tk.Label(master, text="Введите функцию:")
+        self.entry_function = tk.Entry(master, width=50)
+        self.label_result = tk.Label(master, text="Результат:")
+        self.result_text = tk.Text(master, height=5, width=50)
+        self.label_iteration = tk.Label(master, text="Отчет по итерациям:")
+        self.iteration_text = tk.Text(master, height=15, width=50)
+        self.button_solve = tk.Button(master, text="Решить", command=self.solve)
+        self.button_save = tk.Button(master, text="Сохранить результат", command=self.save_result)
+        self.button_load = tk.Button(master, text="Загрузить функцию", command=self.load_function)
+        self.button_example = tk.Button(master, text="Пример функции", command=self.load_example)
+
+        # Добавляем меню
+        menubar = tk.Menu(master)
+        master.config(menu=menubar)
+        help_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Помощь", menu=help_menu)
+        help_menu.add_command(label="Как вводить уравнение", command=self.show_help)
+
+        # Размещаем виджеты на экране
+        self.label_function.pack()
+        self.entry_function.pack()
+        self.button_load.pack()
+        self.button_example.pack()
+        self.label_result.pack()
+        self.result_text.pack()
+        self.button_solve.pack()
+        self.label_iteration.pack()
+        self.iteration_text.pack()
+        self.button_save.pack()
+
+    def load_function(self):
+        file_path = filedialog.askopenfilename(title="Выберите файл с функцией", filetypes=[("Text files", "*.txt")])
+        if file_path:
+            with open(file_path, 'r') as file:
+                function = file.read()
+                self.entry_function.delete(0, tk.END)
+                self.entry_function.insert(0, function)
+
+    def load_example(self):
+        example_function = "np.sqrt(((-1.000*x[1]+x[0])**2 + (4.000*1 - 1.000*x[1] + x[0]**2 + 6.000*1)**2))"
+        self.entry_function.delete(0, tk.END)
+        self.entry_function.insert(0, example_function)
+
+    def solve(self):
+        function_text = self.entry_function.get().strip()
+
+        if not function_text:
+            messagebox.showerror("Ошибка", "Введите функцию")
+            return
+
+        self.iteration_counter = 0  # Сбрасываем счетчик перед новым решением
+        try:
+            result = minimize(self.objective_function, x0=np.array([10, 10]), method='BFGS', jac=self.gradient_function,
+                              options={'disp': True, 'maxiter': 500}, callback=self.iteration_callback)
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, f"Достигнута заданная норма градиента.\n")
+            self.result_text.insert(tk.END, f"Значение функции: {result.fun:.6e}\n")
+            self.result_text.insert(tk.END, f"Номер итерации: {result.nit}\n")
+            self.result_text.insert(tk.END, f"Норма градиента: {np.linalg.norm(result.jac):.6e}\n")
+            self.result_text.insert(tk.END, f"\nНайден минимум функции в точке:\n")
+            self.result_text.insert(tk.END, f"X = ({result.x[0]:.3f}, {result.x[1]:.3f})\n")
+            self.result_text.insert(tk.END, f"Проведено итераций: {result.nit}\n")
+            self.result_text.insert(tk.END, f"Значение функции: {result.fun:.6e}\n")
+            self.result_text.insert(tk.END, f"Норма градиента: {np.linalg.norm(result.jac):.6e}\n")
+        except Exception as e:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, f"Ошибка: {str(e)}")
+
+    def iteration_callback(self, x):
+        self.iteration_counter += 1  # Увеличиваем счетчик итераций
+        self.iteration_text.insert(tk.END, f"\nИтерация {self.iteration_counter}\n")
+        self.iteration_text.insert(tk.END, f"Текущая точка: X = ({x[0]:.6f}, {x[1]:.6f})\n")
+        self.iteration_text.insert(tk.END, f"Значение функции: {self.objective_function(x):.6e}\n")
+        gradient = self.gradient_function(x)
+        self.iteration_text.insert(tk.END, f"Норма градиента: {np.linalg.norm(gradient):.6e}\n")
+        self.iteration_text.insert(tk.END, f"Градиент: {gradient}\n")
+
+    def display_iteration_report(self, result):
+        self.iteration_text.delete(1.0, tk.END)
+        self.iteration_text.insert(tk.END, f"Достигнута заданная норма градиента.\n")
+        self.iteration_text.insert(tk.END, f"Значение функции: {result.fun:.6e}\n")
+        self.iteration_text.insert(tk.END, f"Номер итерации: {result.nit}\n")
+        self.iteration_text.insert(tk.END, f"Норма градиента: {np.linalg.norm(result.jac):.6e}\n")
+        self.iteration_text.insert(tk.END, f"\nНайден минимум функции в точке:\n")
+        self.iteration_text.insert(tk.END, f"X = ({result.x[0]:.3f}, {result.x[1]:.3f})\n")
+        self.iteration_text.insert(tk.END, f"Проведено итераций: {result.nit}\n")
+        self.iteration_text.insert(tk.END, f"Значение функции: {result.fun:.6e}\n")
+        self.iteration_text.insert(tk.END, f"Норма градиента: {np.linalg.norm(result.jac):.6e}\n")
+
+    def save_result(self):
+        result_text = self.result_text.get("1.0", tk.END)
+        file_path = filedialog.asksaveasfilename(title="Сохранить результат", defaultextension=".txt",
+                                                  filetypes=[("Text files", "*.txt")])
+        if file_path:
+            with open(file_path, 'w') as file:
+                file.write(result_text)
+
+    def objective_function(self, x):
+        try:
+            expression = self.entry_function.get()
+            result = eval(expression, {"x": x, "np": np})
+            return result
+        except Exception as e:
+            raise ValueError(f"Ошибка в вычислении функции: {str(e)}")
+
+    def gradient_function(self, x):
+        try:
+            expression = self.entry_function.get()
+            gradient = approx_fprime(x, self.objective_function, epsilon=1e-5)
+            return gradient
+        except Exception as e:
+            raise ValueError(f"Ошибка в вычислении градиента: {str(e)}")
+
+    def show_help(self):
+        help_text = (
+            "Для ввода уравнения используйте переменные x[0] и x[1]. Например:\n"
+            "np.sqrt(((-1.000*x[1]+x[0])**2 + (4.000*1 - 1.000*x[1] + x[0]**2 + 6.000*1)**2))"
+            "Также вы можете использовать функции из библиотеки numpy, например:\n"
+            "np.sin(x[0]) + np.cos(x[1])"
+        )
+        messagebox.showinfo("Как вводить уравнение", help_text)
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = BFGSApp(root)
+    root.mainloop()
